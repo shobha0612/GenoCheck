@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GenoCheck — Interactive Validator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0a0d13;
+    --bg2:#0e121a;
+    --panel:#12161f;
+    --panel2:#161b26;
+    --border:#232937;
+    --border-soft:#1a2030;
+    --text:#e8ebf2;
+    --text-dim:#8993a8;
+    --text-faint:#565f74;
+
+    --dfa:#5fd9c8;
+    --dfa-glow:rgba(95,217,200,.18);
+    --pda:#b493f5;
+    --pda-glow:rgba(180,147,245,.18);
+    --tm:#f5a95f;
+    --tm-glow:rgba(245,169,95,.18);
+
+    --accept:#3fd189;
+    --accept-glow:rgba(63,209,137,.15);
+    --reject:#f2637a;
+    --reject-glow:rgba(242,99,122,.15);
+    --pending:#3a4256;
+
+    --font-display:'Space Grotesk',sans-serif;
+    --font-body:'Inter',sans-serif;
+    --font-mono:'JetBrains Mono',monospace;
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(ellipse 900px 500px at 15% -10%, rgba(95,217,200,.06), transparent 60%),
+      radial-gradient(ellipse 900px 500px at 85% 10%, rgba(245,169,95,.05), transparent 60%),
+      var(--bg);
+    color:var(--text);
+    font-family:var(--font-body);
+    min-height:100vh;
+    padding:32px 20px 80px;
+  }
+
+  main{max-width:1180px;margin:0 auto;}
+
+  /* ---------- header ---------- */
+  header{margin-bottom:34px;}
+  .eyebrow{
+    font-family:var(--font-mono);
+    font-size:11.5px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--text-faint);
+    display:flex;align-items:center;gap:10px;
+    margin-bottom:14px;
+  }
+  .eyebrow .dot{width:6px;height:6px;border-radius:50%;background:var(--accept);box-shadow:0 0 8px var(--accept);}
+  h1{
+    font-family:var(--font-display);
+    font-size:clamp(30px,4.4vw,44px);
+    font-weight:700;
+    margin:0 0 10px;
+    letter-spacing:-.01em;
+    background:linear-gradient(90deg,#fff, #c9cfdb 70%);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+  }
+  h1 span{
+    background:linear-gradient(90deg,var(--dfa),var(--pda) 55%,var(--tm));
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+  }
+  .subtitle{color:var(--text-dim);font-size:15.5px;max-width:640px;line-height:1.55;}
+
+  /* ---------- input section ---------- */
+  .input-card{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:16px;
+    padding:22px 24px;
+    margin-bottom:22px;
+  }
+  .input-label{
+    font-family:var(--font-mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--text-faint);margin-bottom:10px;display:block;
+  }
+  .seq-row{display:flex;gap:12px;align-items:center;}
+  #seqInput{
+    flex:1;
+    background:var(--bg2);
+    border:1.5px solid var(--border);
+    border-radius:10px;
+    padding:14px 16px;
+    color:var(--text);
+    font-family:var(--font-mono);
+    font-size:19px;
+    letter-spacing:.06em;
+    outline:none;
+    transition:border-color .15s, box-shadow .15s;
+    text-transform:uppercase;
+  }
+  #seqInput::placeholder{color:var(--text-faint);letter-spacing:.03em;text-transform:none;}
+  #seqInput:focus{border-color:#3a4560;box-shadow:0 0 0 3px rgba(95,217,200,.08);}
+  #seqInput.bad-char{border-color:var(--reject);box-shadow:0 0 0 3px var(--reject-glow);}
+  .len-badge{
+    font-family:var(--font-mono);font-size:12.5px;color:var(--text-faint);
+    white-space:nowrap; min-width:64px; text-align:right;
+  }
+
+  .presets{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px;}
+  .preset-btn{
+    font-family:var(--font-mono);
+    font-size:12px;
+    background:var(--bg2);
+    border:1px solid var(--border);
+    color:var(--text-dim);
+    padding:7px 12px;
+    border-radius:100px;
+    cursor:pointer;
+    transition:all .15s;
+    display:flex;align-items:center;gap:7px;
+  }
+  .preset-btn:hover{border-color:#3a4560;color:var(--text);}
+  .preset-btn .tag{
+    width:6px;height:6px;border-radius:50%;flex-shrink:0;
+  }
+  .preset-btn.accept-tag .tag{background:var(--accept);}
+  .preset-btn.reject-tag .tag{background:var(--reject);}
+
+  /* ---------- power ladder ---------- */
+  .ladder-wrap{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:16px;
+    padding:22px 26px 18px;
+    margin-bottom:22px;
+  }
+  .ladder-title{
+    font-family:var(--font-mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--text-faint);margin-bottom:18px;
+  }
+  .ladder{
+    display:grid;grid-template-columns:1fr 1fr 1fr;
+    align-items:end;gap:14px;
+    height:120px;
+  }
+  .step{
+    border-radius:10px 10px 6px 6px;
+    display:flex;flex-direction:column;justify-content:flex-end;
+    padding:10px 14px;
+    position:relative;
+    transition:all .35s cubic-bezier(.2,.8,.2,1);
+    border:1px solid var(--border);
+    background:var(--bg2);
+  }
+  .step .step-name{font-family:var(--font-display);font-weight:600;font-size:14px;color:var(--text-dim);transition:color .3s;}
+  .step .step-sub{font-family:var(--font-mono);font-size:10.5px;color:var(--text-faint);margin-top:2px;transition:color .3s;}
+  .step[data-k="1"]{height:46%;}
+  .step[data-k="2"]{height:70%;}
+  .step[data-k="3"]{height:100%;}
+  .step.lit-1{border-color:var(--dfa);background:linear-gradient(180deg,var(--dfa-glow),var(--bg2));box-shadow:0 0 24px -6px var(--dfa-glow);}
+  .step.lit-1 .step-name{color:var(--dfa);}
+  .step.lit-2{border-color:var(--pda);background:linear-gradient(180deg,var(--pda-glow),var(--bg2));box-shadow:0 0 24px -6px var(--pda-glow);}
+  .step.lit-2 .step-name{color:var(--pda);}
+  .step.lit-3{border-color:var(--tm);background:linear-gradient(180deg,var(--tm-glow),var(--bg2));box-shadow:0 0 24px -6px var(--tm-glow);}
+  .step.lit-3 .step-name{color:var(--tm);}
+  .step.dead{opacity:.3;}
+  .subset-note{
+    text-align:center;font-family:var(--font-mono);font-size:12px;color:var(--text-faint);margin-top:14px;
+    letter-spacing:.02em;
+  }
+  .subset-note b{color:var(--text-dim);font-weight:600;}
+
+  /* ---------- stage cards ---------- */
+  .stages{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:22px;}
+  @media(max-width:920px){.stages{grid-template-columns:1fr;}}
+
+  .card{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:16px;
+    overflow:hidden;
+    display:flex;flex-direction:column;
+    transition:border-color .3s, box-shadow .3s;
+  }
+  .card.accent-1{--accent:var(--dfa);--accent-glow:var(--dfa-glow);}
+  .card.accent-2{--accent:var(--pda);--accent-glow:var(--pda-glow);}
+  .card.accent-3{--accent:var(--tm);--accent-glow:var(--tm-glow);}
+  .card.st-accept{border-color:var(--accept);box-shadow:0 0 0 1px var(--accept-glow), 0 0 30px -10px var(--accept-glow);}
+  .card.st-reject{border-color:var(--reject);box-shadow:0 0 0 1px var(--reject-glow), 0 0 30px -10px var(--reject-glow);}
+
+  .card-head{padding:16px 18px 14px;border-bottom:1px solid var(--border-soft);background:var(--panel2);}
+  .card-head-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;}
+  .card-eyebrow{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);}
+  .card-name{font-family:var(--font-display);font-weight:700;font-size:17px;margin:2px 0 0;}
+  .badge{
+    font-family:var(--font-mono);font-size:10.5px;font-weight:600;letter-spacing:.06em;
+    padding:4px 9px;border-radius:100px;white-space:nowrap;text-transform:uppercase;
+    background:var(--pending);color:#c3c9d6;
+  }
+  .badge.accept{background:rgba(63,209,137,.16);color:var(--accept);}
+  .badge.reject{background:rgba(242,99,122,.16);color:var(--reject);}
+  .badge.wait{background:rgba(255,255,255,.05);color:var(--text-faint);}
+  .card-desc{font-size:12.5px;color:var(--text-dim);line-height:1.5;margin-top:8px;}
+  .card-desc b{color:var(--text);font-weight:600;}
+
+  .card-body{padding:16px 18px;flex:1;display:flex;flex-direction:column;gap:14px;}
+
+  /* dfa visual */
+  .dfa-viz{display:flex;align-items:center;justify-content:center;gap:6px;padding:6px 0 2px;flex-wrap:wrap;}
+  .dfa-node{
+    width:52px;height:52px;border-radius:50%;
+    border:2px solid var(--border);
+    display:flex;align-items:center;justify-content:center;
+    font-family:var(--font-mono);font-size:11px;color:var(--text-faint);
+    background:var(--bg2);flex-shrink:0;transition:all .2s;
+    text-align:center;line-height:1.2;
+  }
+  .dfa-node.active{border-color:var(--dfa);color:var(--dfa);background:var(--dfa-glow);box-shadow:0 0 14px -2px var(--dfa-glow);}
+  .dfa-node.active.accepting{box-shadow:0 0 0 3px rgba(95,217,200,.25), 0 0 14px -2px var(--dfa-glow);}
+  .dfa-node.rejectnode.active{border-color:var(--reject);color:var(--reject);background:var(--reject-glow);}
+  .dfa-arrow{color:var(--text-faint);font-size:14px;}
+
+  /* pda visual */
+  .pda-viz{display:flex;gap:18px;align-items:flex-end;justify-content:center;min-height:88px;padding:4px 0;}
+  .stack-col{display:flex;flex-direction:column-reverse;gap:3px;align-items:center;min-width:120px;}
+  .stack-label{font-family:var(--font-mono);font-size:10px;color:var(--text-faint);margin-top:6px;}
+  .stack-block{
+    font-family:var(--font-mono);font-weight:600;font-size:13px;
+    width:34px;height:22px;border-radius:5px;
+    display:flex;align-items:center;justify-content:center;
+    background:var(--pda-glow);border:1px solid var(--pda);color:var(--pda);
+  }
+  .stack-block.popped{background:rgba(63,209,137,.16);border-color:var(--accept);color:var(--accept);}
+  .stack-empty{font-family:var(--font-mono);font-size:11px;color:var(--text-faint);padding:16px 0;}
+
+  /* tm visual */
+  .tape-viz{display:flex;gap:3px;flex-wrap:wrap;justify-content:flex-start;padding:2px 0;}
+  .tape-cell{
+    font-family:var(--font-mono);font-weight:600;font-size:12.5px;
+    width:24px;height:28px;border-radius:4px;
+    display:flex;align-items:center;justify-content:center;
+    background:var(--bg2);border:1px solid var(--border);color:var(--text-dim);
+    transition:all .2s;
+  }
+  .tape-cell.start{background:rgba(63,209,137,.14);border-color:var(--accept);color:var(--accept);}
+  .tape-cell.stop{background:rgba(242,99,122,.14);border-color:var(--reject);color:var(--reject);}
+  .tape-cell.stop.ok{background:rgba(63,209,137,.14);border-color:var(--accept);color:var(--accept);}
+  .counters{display:flex;gap:16px;font-family:var(--font-mono);font-size:12px;color:var(--text-dim);}
+  .counters b{color:var(--text);}
+  .counters .match{color:var(--accept);}
+  .counters .mismatch{color:var(--reject);}
+
+  /* trace log */
+  .trace{
+    background:var(--bg2);
+    border:1px solid var(--border-soft);
+    border-radius:8px;
+    padding:10px 12px;
+    font-family:var(--font-mono);
+    font-size:11.5px;
+    line-height:1.65;
+    color:var(--text-dim);
+    max-height:150px;
+    overflow-y:auto;
+    flex:1;
+  }
+  .trace .ln{white-space:pre-wrap;word-break:break-word;}
+  .trace .ln.accept-ln{color:var(--accept);}
+  .trace .ln.reject-ln{color:var(--reject);}
+  .trace::-webkit-scrollbar{width:6px;}
+  .trace::-webkit-scrollbar-thumb{background:var(--border);border-radius:10px;}
+  .empty-note{color:var(--text-faint);font-size:12px;font-family:var(--font-mono);padding:8px 0;}
+
+  /* ---------- verdict ---------- */
+  .verdict{
+    border-radius:16px;
+    padding:24px 28px;
+    display:flex;align-items:center;justify-content:space-between;
+    border:1px solid var(--border);
+    background:var(--panel);
+    transition:all .3s;
+    flex-wrap:wrap;gap:16px;
+  }
+  .verdict.accept{border-color:var(--accept);background:linear-gradient(90deg, var(--accept-glow), transparent 60%), var(--panel);}
+  .verdict.reject{border-color:var(--reject);background:linear-gradient(90deg, var(--reject-glow), transparent 60%), var(--panel);}
+  .verdict-left{display:flex;align-items:center;gap:16px;}
+  .verdict-icon{
+    width:48px;height:48px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    background:var(--pending);font-size:22px;flex-shrink:0;
+  }
+  .verdict.accept .verdict-icon{background:rgba(63,209,137,.18);}
+  .verdict.reject .verdict-icon{background:rgba(242,99,122,.18);}
+  .verdict-title{font-family:var(--font-display);font-weight:700;font-size:19px;}
+  .verdict-title.accept-text{color:var(--accept);}
+  .verdict-title.reject-text{color:var(--reject);}
+  .verdict-sub{font-family:var(--font-mono);font-size:12px;color:var(--text-dim);margin-top:2px;}
+  .verdict-path{display:flex;gap:6px;font-family:var(--font-mono);font-size:11.5px;}
+  .path-chip{padding:5px 11px;border-radius:100px;background:var(--bg2);border:1px solid var(--border);color:var(--text-faint);}
+  .path-chip.done{border-color:var(--accept);color:var(--accept);}
+  .path-chip.stuck{border-color:var(--reject);color:var(--reject);}
+
+  footer{text-align:center;margin-top:28px;font-family:var(--font-mono);font-size:11px;color:var(--text-faint);}
+</style>
+</head>
+<body>
+<main>
+
+  <header>
+    <div class="eyebrow"><span class="dot"></span>TECH315 — MODELS OF COMPUTATION · LIVE DEMO</div>
+    <h1>Geno<span>Check</span></h1>
+    <div class="subtitle">Type a DNA sequence and watch it fall through three cascading machines — a DFA, a PDA, and a Turing machine — each one only as powerful as the check it has to make.</div>
+  </header>
+
+  <div class="input-card">
+    <label class="input-label" for="seqInput">Sequence (Σ = {A, C, G, T})</label>
+    <div class="seq-row">
+      <input id="seqInput" type="text" placeholder="Type or paste a sequence, e.g. ATGGGATCCTACTAA" autocomplete="off" spellcheck="false">
+      <div class="len-badge" id="lenBadge">len 0</div>
+    </div>
+    <div class="presets" id="presets"></div>
+  </div>
+
+  <div class="ladder-wrap">
+    <div class="ladder-title">Why three machines — the Chomsky hierarchy, made concrete</div>
+    <div class="ladder">
+      <div class="step" data-k="1" id="step1">
+        <div class="step-name">Regular</div>
+        <div class="step-sub">DFA · finite memory</div>
+      </div>
+      <div class="step" data-k="2" id="step2">
+        <div class="step-name">Context-Free</div>
+        <div class="step-sub">PDA · one stack</div>
+      </div>
+      <div class="step" data-k="3" id="step3">
+        <div class="step-name">Decidable</div>
+        <div class="step-sub">TM · unbounded tape</div>
+      </div>
+    </div>
+    <div class="subset-note">Regular <b>⊂</b> Context-Free <b>⊂</b> Decidable — each stage needs exactly the power the level above adds, no more.</div>
+  </div>
+
+  <div class="stages">
+
+    <div class="card accent-1" id="card1">
+      <div class="card-head">
+        <div class="card-head-top">
+          <div>
+            <div class="card-eyebrow">Stage 1 · DFA</div>
+            <div class="card-name">Alphabet &amp; frame</div>
+          </div>
+          <div class="badge wait" id="badge1">waiting</div>
+        </div>
+        <div class="card-desc">Only needs a running <b>length mod 3</b> and an invalid-symbol flag — both finite, so a fixed handful of states covers every input length.</div>
+      </div>
+      <div class="card-body">
+        <div class="dfa-viz" id="dfaViz"></div>
+        <div class="trace" id="trace1"><div class="empty-note">No input yet.</div></div>
+      </div>
+    </div>
+
+    <div class="card accent-2" id="card2">
+      <div class="card-head">
+        <div class="card-head-top">
+          <div>
+            <div class="card-eyebrow">Stage 2 · PDA</div>
+            <div class="card-name">Hairpin fold</div>
+          </div>
+          <div class="badge wait" id="badge2">waiting</div>
+        </div>
+        <div class="card-desc">Matching a region against its <b>reverse complement</b> needs to remember an arbitrarily long first half — a stack pushes it, then pops it back in reverse order for free.</div>
+      </div>
+      <div class="card-body">
+        <div class="pda-viz" id="pdaViz"><div class="stack-empty">stack idle</div></div>
+        <div class="trace" id="trace2"><div class="empty-note">Stage 1 must accept first.</div></div>
+      </div>
+    </div>
+
+    <div class="card accent-3" id="card3">
+      <div class="card-head">
+        <div class="card-head-top">
+          <div>
+            <div class="card-eyebrow">Stage 3 · Turing Machine</div>
+            <div class="card-name">Reading frame</div>
+          </div>
+          <div class="badge wait" id="badge3">waiting</div>
+        </div>
+        <div class="card-desc">Start codon, stop codon, and <b>G = C</b> are independent counts checked against each other — one stack can enforce one relationship, not several at once.</div>
+      </div>
+      <div class="card-body">
+        <div class="tape-viz" id="tapeViz"></div>
+        <div class="counters" id="counters"></div>
+        <div class="trace" id="trace3"><div class="empty-note">Stage 2 must accept first.</div></div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="verdict" id="verdict">
+    <div class="verdict-left">
+      <div class="verdict-icon" id="verdictIcon">·</div>
+      <div>
+        <div class="verdict-title" id="verdictTitle">Awaiting input</div>
+        <div class="verdict-sub" id="verdictSub">Type a sequence above to run the full pipeline.</div>
+      </div>
+    </div>
+    <div class="verdict-path" id="verdictPath">
+      <span class="path-chip" id="chip1">DFA</span>
+      <span class="path-chip" id="chip2">PDA</span>
+      <span class="path-chip" id="chip3">TM</span>
+    </div>
+  </div>
+
+  <footer>GenoCheck · a sequence must clear Stage 1 before Stage 2, and Stage 2 before Stage 3</footer>
+
+</main>
+
+<script>
+const COMPLEMENT = {A:'T',T:'A',C:'G',G:'C'};
+const STOP = new Set(['TAA','TAG','TGA']);
+
+const PRESETS = [
+  {label:'Full ACCEPT', seq:'ATGCGATAA', tag:'accept'},
+  {label:'Bad alphabet', seq:'ATX', tag:'reject'},
+  {label:'Broken frame', seq:'ATGC', tag:'reject'},
+  {label:'No hairpin', seq:'AAAAAAAAA', tag:'reject'},
+  {label:'G≠C count', seq:'ATGATATAA', tag:'reject'},
+  {label:'EcoRI site', seq:'GAATTC', tag:'reject'},
+];
+
+function buildPresets(){
+  const wrap = document.getElementById('presets');
+  PRESETS.forEach(p=>{
+    const b = document.createElement('button');
+    b.className = `preset-btn ${p.tag}-tag`;
+    b.innerHTML = `<span class="tag"></span>${p.label} <span style="color:var(--text-faint)"> · ${p.seq}</span>`;
+    b.onclick = ()=>{ document.getElementById('seqInput').value = p.seq; render(); };
+    wrap.appendChild(b);
+  });
+}
+
+async function render(){
+  const raw = document.getElementById('seqInput').value.toUpperCase();
+  document.getElementById('seqInput').value = raw;
+  const lenBadge = document.getElementById('lenBadge');
+  lenBadge.textContent = `len ${raw.length}`;
+
+  const card1=document.getElementById('card1'), card2=document.getElementById('card2'), card3=document.getElementById('card3');
+  [card1,card2,card3].forEach(c=>c.classList.remove('st-accept','st-reject'));
+
+  const badge1=document.getElementById('badge1'), badge2=document.getElementById('badge2'), badge3=document.getElementById('badge3');
+  const trace1=document.getElementById('trace1'), trace2=document.getElementById('trace2'), trace3=document.getElementById('trace3');
+  const chip1=document.getElementById('chip1'), chip2=document.getElementById('chip2'), chip3=document.getElementById('chip3');
+  [chip1,chip2,chip3].forEach(c=>c.classList.remove('done','stuck'));
+
+  const seqInput = document.getElementById('seqInput');
+
+  if(raw.length === 0){
+    setBadge(badge1,'wait'); setBadge(badge2,'wait'); setBadge(badge3,'wait');
+    trace1.innerHTML='<div class="empty-note">No input yet.</div>';
+    trace2.innerHTML='<div class="empty-note">Stage 1 must accept first.</div>';
+    trace3.innerHTML='<div class="empty-note">Stage 2 must accept first.</div>';
+    document.getElementById('dfaViz').innerHTML='';
+    document.getElementById('pdaViz').innerHTML='<div class="stack-empty">stack idle</div>';
+    document.getElementById('tapeViz').innerHTML=''; document.getElementById('counters').innerHTML='';
+    updateLadder(-1);
+    setVerdict(null);
+    seqInput.classList.remove('bad-char');
+    return;
+  }
+
+  try {
+    const response = await fetch('/api/validate', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({sequence: raw})
+    });
+    const result = await response.json();
+
+    if(result.error){
+      alert('Error: ' + result.error);
+      return;
+    }
+
+    const dfa_result = result.stages.stage1_dfa;
+    const pda_result = result.stages.stage2_pda;
+    const tm_result = result.stages.stage3_tm;
+
+    // Render DFA
+    renderDfaViz(raw, dfa_result);
+    renderTrace(trace1, dfa_result.trace, dfa_result.accepted);
+    seqInput.classList.toggle('bad-char', !dfa_result.valid_alphabet);
+
+    if(!dfa_result.accepted){
+      setBadge(badge1,'reject'); card1.classList.add('st-reject');
+      setBadge(badge2,'wait'); setBadge(badge3,'wait');
+      trace2.innerHTML='<div class="empty-note">Stage 1 rejected — not reached.</div>';
+      trace3.innerHTML='<div class="empty-note">Stage 1 rejected — not reached.</div>';
+      document.getElementById('pdaViz').innerHTML='<div class="stack-empty">stack idle</div>';
+      document.getElementById('tapeViz').innerHTML=''; document.getElementById('counters').innerHTML='';
+      updateLadder(0);
+      chip1.classList.add('stuck');
+      setVerdict({accepted:false, stage:1});
+      return;
+    }
+    setBadge(badge1,'accept'); card1.classList.add('st-accept'); chip1.classList.add('done');
+
+    // Render PDA
+    renderPdaViz(pda_result);
+    renderTrace(trace2, pda_result.trace, pda_result.accepted);
+
+    if(!pda_result.accepted){
+      setBadge(badge2,'reject'); card2.classList.add('st-reject');
+      setBadge(badge3,'wait');
+      trace3.innerHTML='<div class="empty-note">Stage 2 rejected — not reached.</div>';
+      document.getElementById('tapeViz').innerHTML=''; document.getElementById('counters').innerHTML='';
+      updateLadder(1);
+      chip2.classList.add('stuck');
+      setVerdict({accepted:false, stage:2});
+      return;
+    }
+    setBadge(badge2,'accept'); card2.classList.add('st-accept'); chip2.classList.add('done');
+
+    // Render TM
+    renderTapeViz(raw, tm_result);
+    renderTrace(trace3, tm_result.trace, tm_result.accepted);
+    updateLadder(tm_result.accepted ? 3 : 2);
+
+    if(!tm_result.accepted){
+      setBadge(badge3,'reject'); card3.classList.add('st-reject');
+      chip3.classList.add('stuck');
+      setVerdict({accepted:false, stage:3});
+      return;
+    }
+    setBadge(badge3,'accept'); card3.classList.add('st-accept'); chip3.classList.add('done');
+    setVerdict({accepted:true, stage:3});
+
+  } catch(e) {
+    console.error('Error:', e);
+    alert('Connection error: ' + e.message);
+  }
+}
+
+function setBadge(el, state){
+  el.className = 'badge ' + state;
+  el.textContent = state==='accept' ? 'accept' : state==='reject' ? 'reject' : 'not reached';
+}
+
+function renderTrace(el, lines, finalAccept){
+  el.innerHTML = '';
+  lines.forEach((l,i)=>{
+    const d = document.createElement('div');
+    d.className = 'ln';
+    if(i===lines.length-1 && finalAccept===true) d.className += ' accept-ln';
+    if(i===lines.length-1 && finalAccept===false) d.className += ' reject-ln';
+    d.textContent = l;
+    el.appendChild(d);
+  });
+  el.scrollTop = 0;
+}
+
+function renderDfaViz(seq, r1){
+  const viz = document.getElementById('dfaViz');
+  viz.innerHTML = '';
+  const labels = [
+    {id:0, name:'S₀', sub:'mod3=0 ✓'},
+    {id:1, name:'S₁', sub:'mod3=1'},
+    {id:2, name:'S₂', sub:'mod3=2'},
+  ];
+  labels.forEach((l,idx)=>{
+    const node = document.createElement('div');
+    node.className = 'dfa-node' + (l.id===0 ? ' accepting':'');
+    node.innerHTML = `<div>${l.name}<br><span style="font-size:9px">${l.sub}</span></div>`;
+    if(seq.length>0 && r1.valid_alphabet && r1.final_rem===l.id) node.classList.add('active');
+    viz.appendChild(node);
+    if(idx<labels.length-1){
+      const arrow = document.createElement('div');
+      arrow.className='dfa-arrow'; arrow.textContent='→';
+      viz.appendChild(arrow);
+    }
+  });
+  const rej = document.createElement('div');
+  rej.className = 'dfa-node rejectnode' + (seq.length>0 && !r1.valid_alphabet ? ' active':'');
+  rej.innerHTML = `<div>REJ<br><span style="font-size:9px">bad symbol</span></div>`;
+  viz.appendChild(rej);
+}
+
+function renderPdaViz(r2){
+  const viz = document.getElementById('pdaViz');
+  viz.innerHTML = '';
+  if(!r2 || !r2.stem1){
+    viz.innerHTML = '<div class="stack-empty">no matching region — stack never resolves</div>';
+    return;
+  }
+  const col = document.createElement('div');
+  col.className = 'stack-col';
+  r2.stem1.split('').forEach(ch=>{
+    const b = document.createElement('div');
+    b.className = 'stack-block popped';
+    b.textContent = ch;
+    col.appendChild(b);
+  });
+  viz.appendChild(col);
+  const lbl = document.createElement('div');
+  lbl.style.cssText='display:flex;flex-direction:column;justify-content:center;gap:2px;font-family:var(--font-mono);font-size:11px;color:var(--text-dim);';
+  lbl.innerHTML = `stem₁ <b style="color:var(--pda)">${r2.stem1}</b><br>loop <b style="color:var(--text-faint)">${r2.loop||'∅'}</b><br>stem₂ <b style="color:var(--accept)">${r2.stem2}</b>`;
+  viz.appendChild(lbl);
+}
+
+function renderTapeViz(seq, r3){
+  const tape = document.getElementById('tapeViz');
+  const counters = document.getElementById('counters');
+  tape.innerHTML = '';
+  counters.innerHTML = '';
+  if(!seq){ return; }
+  for(let i=0;i<seq.length;i++){
+    const c = document.createElement('div');
+    c.className = 'tape-cell';
+    c.textContent = seq[i];
+    if(i>=0 && i<3 && r3 && r3.counts) c.classList.add('start');
+    if(r3 && r3.counts && r3.counts.G!==undefined){
+      // Find stop codon position from trace
+      const stopMatch = r3.trace.find(t => t.includes('found at position'));
+      if(stopMatch){
+        const match = stopMatch.match(/position (\d+)/);
+        if(match){
+          const stopPos = parseInt(match[1]);
+          if(i>=stopPos && i<stopPos+3){
+            c.classList.add('stop');
+            if(stopPos === seq.length-3) c.classList.add('ok');
+          }
+        }
+      }
+    }
+    tape.appendChild(c);
+  }
+  if(r3 && r3.counts && (r3.counts.G || r3.counts.C)){
+    const match = r3.counts.G === r3.counts.C;
+    counters.innerHTML = `<span>count(G) = <b>${r3.counts.G}</b></span><span>count(C) = <b>${r3.counts.C}</b></span><span class="${match?'match':'mismatch'}">${match?'✓ balanced':'✗ mismatch'}</span>`;
+  }
+}
+
+function updateLadder(reached){
+  for(let k=1;k<=3;k++){
+    const el = document.getElementById('step'+k);
+    el.classList.remove('lit-1','lit-2','lit-3','dead');
+    if(reached >= k){
+      el.classList.add('lit-'+k);
+    }
+  }
+}
+
+function setVerdict(result){
+  const v = document.getElementById('verdict');
+  const icon = document.getElementById('verdictIcon');
+  const title = document.getElementById('verdictTitle');
+  const sub = document.getElementById('verdictSub');
+  v.classList.remove('accept','reject');
+  title.classList.remove('accept-text','reject-text');
+
+  if(result === null){
+    icon.textContent='·'; icon.style.background='var(--pending)';
+    title.textContent='Awaiting input';
+    sub.textContent='Type a sequence above to run the full pipeline.';
+    return;
+  }
+  if(result.accepted){
+    v.classList.add('accept'); title.classList.add('accept-text');
+    icon.textContent='✓';
+    title.textContent='ACCEPT — cleared all three stages';
+    sub.textContent='Valid alphabet & frame, contains a fold-back hairpin, and has a clean open reading frame with balanced G/C.';
+  } else {
+    v.classList.add('reject'); title.classList.add('reject-text');
+    icon.textContent='✗';
+    const names = {1:'Stage 1 (DFA)', 2:'Stage 2 (PDA)', 3:'Stage 3 (Turing Machine)'};
+    title.textContent = `REJECT — stopped at ${names[result.stage]}`;
+    sub.textContent = 'The cascade halts at the first stage that fails; later stages are never run.';
+  }
+}
+
+document.getElementById('seqInput').addEventListener('input', render);
+buildPresets();
+render();
+</script>
+</body>
+</html>
